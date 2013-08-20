@@ -11,13 +11,13 @@ make install
 
 Usage:
 ------
-1.	Make the directory to store the temporary homes
+* Make the directory to store the temporary homes
 	mkdir /temporary
 
-2. Add the pam module to /etc/pam.d/sshd (or any other pam config you want to use)
+* Add the pam module to /etc/pam.d/sshd (or any other pam config you want to use)
 	session		optional		pam_tmphome.so
 
-3. Finally, set your target user's home to /temporary
+* Finally, set your target user's home to /temporary
 	user:*:1000:1000:Temporary user:/temporary:/bin/csh
 
 Note:
