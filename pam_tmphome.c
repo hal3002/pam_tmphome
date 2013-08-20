@@ -31,122 +31,124 @@
 extern char **environ;
 
 int processNode(const char *name, const struct stat *status, int type, struct FTW *ftw) {
-        switch(type) {
-                case FTW_DP:
-                        rmdir(name);
-                        break;
-                default:
-                        unlink(name);
-        }
+	/* rmdir directories and unlink anything else */
+	switch(type) {
+		case FTW_DP:
+			rmdir(name);
+			break;
+		default:
+			unlink(name);
+	}
 
-        return 0;
+	return 0;
 }
 
 
+/* copied from pam_mkhomedir */
 void
 copymkdir(char const * dir, char const * skel, mode_t mode, uid_t uid, gid_t gid)
 {
-        int             rc = 0;
-        char            src[MAXPATHLEN];
-        char            dst[MAXPATHLEN];
+	int             rc = 0;
+	char            src[MAXPATHLEN];
+	char            dst[MAXPATHLEN];
 
-        if (mkdir(dir, mode) != 0 && errno != EEXIST) {
-                PAM_LOG("mkdir(%s)", dir);
-        } else {
-                int             infd, outfd;
-                struct stat     st;
+	if (mkdir(dir, mode) != 0 && errno != EEXIST) {
+		PAM_LOG("mkdir(%s)", dir);
+	} else {
+		int             infd, outfd;
+		struct stat     st;
 
-                static char     counter = 0;
-                static char    *copybuf = NULL;
+		static char     counter = 0;
+		static char    *copybuf = NULL;
 
-                ++counter;
-                chown(dir, uid, gid);
-                if (skel == NULL || *skel == '\0')
-                        rc = 1;
-                else {
-                        DIR            *d = opendir(skel);
+		++counter;
+		chown(dir, uid, gid);
+		if (skel == NULL || *skel == '\0')
+			rc = 1;
+		else {
+			DIR            *d = opendir(skel);
 
-                        if (d != NULL) {
-                                struct dirent  *e;
+			if (d != NULL) {
+				struct dirent  *e;
 
-                                while ((e = readdir(d)) != NULL) {
-                                        char           *p = e->d_name;
+				while ((e = readdir(d)) != NULL) {
+					char           *p = e->d_name;
 
-                                        if (snprintf(src, sizeof(src), "%s/%s", skel, p) >= (int)sizeof(src))
-                                                PAM_LOG("warning: pathname too long '%s/%s' (skel not copied)", skel, p);
-                                        else if (stat(src, &st) == 0) {
-                                                if (strncmp(p, "dot.", 4) == 0) /* Conversion */
-                                                        p += 3;
-                                                if (snprintf(dst, sizeof(dst), "%s/%s", dir, p) >= (int)sizeof(dst))
-                                                        PAM_LOG("warning: path too long '%s/%s' (skel file skipped)", dir, p);
-                                                else {
-                                                    if (S_ISDIR(st.st_mode)) {  /* Recurse for this */
-                                                        if (strcmp(e->d_name, ".") != 0 && strcmp(e->d_name, "..") != 0)
-                                                                copymkdir(dst, src, (st.st_mode & 0777), uid, gid);
-                                                                chflags(dst, st.st_flags);      /* propogate flags */
-                                                        /*
-                                                         * Note: don't propogate special attributes
-                                                         * but do propogate file flags
-                                                         */
-                                                    } else if (S_ISREG(st.st_mode) && (outfd = open(dst, O_RDWR | O_CREAT | O_EXCL, st.st_mode)) != -1) {
-                                                        if ((infd = open(src, O_RDONLY)) == -1) {
-                                                                close(outfd);
-                                                                remove(dst);
-                                                        } else {
-                                                                int             b;
+					if (snprintf(src, sizeof(src), "%s/%s", skel, p) >= (int)sizeof(src))
+						PAM_LOG("warning: pathname too long '%s/%s' (skel not copied)", skel, p);
+					else if (stat(src, &st) == 0) {
+						if (strncmp(p, "dot.", 4) == 0) /* Conversion */
+							p += 3;
+						if (snprintf(dst, sizeof(dst), "%s/%s", dir, p) >= (int)sizeof(dst))
+							PAM_LOG("warning: path too long '%s/%s' (skel file skipped)", dir, p);
+						else {
+							if (S_ISDIR(st.st_mode)) {  /* Recurse for this */
+								if (strcmp(e->d_name, ".") != 0 && strcmp(e->d_name, "..") != 0)
+									copymkdir(dst, src, (st.st_mode & 0777), uid, gid);
+								chflags(dst, st.st_flags);      /* propogate flags */
+								/*
+								 * Note: don't propogate special attributes
+								 * but do propogate file flags
+								*/
+							} else if (S_ISREG(st.st_mode) && (outfd = open(dst, O_RDWR | O_CREAT | O_EXCL, st.st_mode)) != -1) {
+								if ((infd = open(src, O_RDONLY)) == -1) {
+									close(outfd);
+									remove(dst);
+								} else {
+									int b;
 
-                                                                /*
-                                                                 * Allocate our copy buffer if we need to
-                                                                 */
-                                                                if (copybuf == NULL)
-                                                                        copybuf = malloc(4096);
-                                                                while ((b = read(infd, copybuf, 4096)) > 0)
-                                                                        write(outfd, copybuf, b);
-                                                                close(infd);
-                                                                /*
-                                                                 * Propogate special filesystem flags
-                                                                 */
-                                                                fchown(outfd, uid, gid);
-                                                                fchflags(outfd, st.st_flags);
-                                                                close(outfd);
-                                                                chown(dst, uid, gid);
-                                                        }
-                                                    }
-                                                }
-                                        }
-                                }
-                                closedir(d);
-                        }
-                }
-                if (--counter == 0 && copybuf != NULL) {
-                        free(copybuf);
-                        copybuf = NULL;
-                }
-        }
+									/*
+									 * Allocate our copy buffer if we need to
+  									 */
+									if (copybuf == NULL)
+										copybuf = malloc(4096);
+									while ((b = read(infd, copybuf, 4096)) > 0)
+										write(outfd, copybuf, b);
+									close(infd);
+									/*
+									 * Propogate special filesystem flags
+									 */
+									fchown(outfd, uid, gid);
+									fchflags(outfd, st.st_flags);
+									close(outfd);
+									chown(dst, uid, gid);
+								}
+							}
+						}
+					}
+				}
+ 				closedir(d);
+			}
+		}
+		if (--counter == 0 && copybuf != NULL) {
+			free(copybuf);
+			copybuf = NULL;
+		}
+	}
 }
 PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags __unused, int argc , const char *argv[] ) {
 	int i=0, pam_err = 0;
-        struct passwd *pwd;
-        const char *user = NULL;
+	struct passwd *pwd;
+	const char *user = NULL;
 	char *tmp_home = NULL;
 	mode_t *set = NULL;
 	char modeval[5];
 	
 	/* Default values */
-        strncpy(modeval,"0755",sizeof(modeval));
+	strncpy(modeval,"0755",sizeof(modeval));
  
 	/* Get the user entry for the logged in user */
-        pam_err = pam_get_user(pamh, &user, NULL);
+	pam_err = pam_get_user(pamh, &user, NULL);
 
-        if (pam_get_user(pamh, &user, NULL) != PAM_SUCCESS)
-                return (PAM_SERVICE_ERR);
-        if (user == NULL || (pwd = getpwnam(user)) == NULL)
-                return (PAM_SERVICE_ERR);
+	if (pam_get_user(pamh, &user, NULL) != PAM_SUCCESS)
+		return (PAM_SERVICE_ERR);
+	if (user == NULL || (pwd = getpwnam(user)) == NULL)
+		return (PAM_SERVICE_ERR);
 	
 	/* Home should be set to /temporary */
 	if(strncmp(pwd->pw_dir, HOME_PATH, strlen(HOME_PATH))) {
 		PAM_LOG("Ignoring standard user\n");
-                return (PAM_SERVICE_ERR);
+		return (PAM_SERVICE_ERR);
 	}
 	
 	/* We need a writable string for mkdtemp */
@@ -156,22 +158,15 @@ PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags __unused, int a
 	/* Now create the temporary home directory */
 	if(mkdtemp(tmp_home) == NULL) {
 		PAM_LOG("Unable to create temporary home directory\n");
-                return (PAM_SERVICE_ERR);
+		return (PAM_SERVICE_ERR);
 	}
 	
 	
-	/*
-	if(chown(tmp_home, pwd->pw_uid, pwd->pw_gid)) {
-		PAM_LOG("Failed to chown the home directory\n");
-		return (PAM_SERVICE_ERR);
-	}	
-	*/
-
 	/* Get the chmod mode */
-        if (( set=setmode(modeval) ) == NULL ) {
-                PAM_LOG("Value set in mode is not a mode - see chmod(1) for details");
+	if (( set=setmode(modeval) ) == NULL ) {
+		PAM_LOG("Value set in mode is not a mode - see chmod(1) for details");
 		return (PAM_SERVICE_ERR);
-        }
+	}
 
 	/* Copy the home directory over and change the permissions (copied from pam_mkhomedir */
 	copymkdir(tmp_home, "/usr/share/skel", getmode(set, S_IRWXU | S_IRWXG | S_IRWXO), pwd->pw_uid,pwd->pw_gid);
@@ -203,7 +198,7 @@ PAM_EXTERN int pam_sm_close_session(pam_handle_t *pamh,
 	}
 
 	/* We should now be good to remove the directory */	
-        nftw(tmp_home, processNode, 1, FTW_PHYS | FTW_DEPTH | FTW_MOUNT);
+	nftw(tmp_home, processNode, 1, FTW_PHYS | FTW_DEPTH | FTW_MOUNT);
 	return PAM_SUCCESS;
 }
 
