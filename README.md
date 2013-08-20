@@ -6,7 +6,7 @@ PAM module to dynamically create and destroy home directories for shared account
 Installation:
 -------------
 I've only tested that this builds on FreeBSD and Ubuntu
->make
+>make<br />
 >make install
 
 Usage:
