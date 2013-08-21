@@ -138,10 +138,8 @@ PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags __unused, int a
 	strncpy(modeval,"0755",sizeof(modeval));
  
 	/* Get the user entry for the logged in user */
-	pam_err = pam_get_user(pamh, &user, NULL);
-
-	if (pam_get_user(pamh, &user, NULL) != PAM_SUCCESS)
-		return (PAM_SERVICE_ERR);
+	if ((pam_err = pam_get_user(pamh, &user, NULL)) != PAM_SUCCESS)
+		return (pam_err);
 	if (user == NULL || (pwd = getpwnam(user)) == NULL)
 		return (PAM_SERVICE_ERR);
 	
