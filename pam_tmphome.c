@@ -48,7 +48,6 @@ int processNode(const char *name, const struct stat *status, int type, struct FT
 void
 copymkdir(char const * dir, char const * skel, mode_t mode, uid_t uid, gid_t gid)
 {
-	int             rc = 0;
 	char            src[MAXPATHLEN];
 	char            dst[MAXPATHLEN];
 
@@ -63,9 +62,7 @@ copymkdir(char const * dir, char const * skel, mode_t mode, uid_t uid, gid_t gid
 
 		++counter;
 		chown(dir, uid, gid);
-		if (skel == NULL || *skel == '\0')
-			rc = 1;
-		else {
+		if (skel != NULL && *skel != '\0') {
 			DIR            *d = opendir(skel);
 
 			if (d != NULL) {
