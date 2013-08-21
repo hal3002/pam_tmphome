@@ -178,7 +178,7 @@ PAM_EXTERN int pam_sm_open_session(pam_handle_t *pamh, int flags __unused, int a
 PAM_EXTERN int pam_sm_close_session(pam_handle_t *pamh,
 	int flags __unused, int argc, const char *argv[] ) {
 	
-	char *tmp_home = NULL;
+	const char *tmp_home = NULL;
 	
 	/* Retrieve the users home */
 	if((tmp_home = pam_getenv(pamh, "HOME")) == NULL) {
